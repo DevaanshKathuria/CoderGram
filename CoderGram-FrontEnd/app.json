@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "CoderGram",
-    "slug": "CoderGram",
+    "name": "CoderGram-FrontEnd",
+    "slug": "CoderGram-FrontEnd",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
