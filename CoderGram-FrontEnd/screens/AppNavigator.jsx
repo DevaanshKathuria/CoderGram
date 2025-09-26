@@ -3,7 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { AuthContext } from '..AuthContext/';
+import { AuthContext } from '../AuthContext';
 import LoginScreen from './LoginScreen';
 import SignupScreen from './SignupScreen';
 

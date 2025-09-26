@@ -1,8 +1,8 @@
 import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../AuthContext';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:3000';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
