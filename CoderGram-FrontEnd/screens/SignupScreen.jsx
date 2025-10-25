@@ -1,20 +1,26 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { AuthContext } from '../AuthContext';
+import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { TextInput, Button, Text, ActivityIndicator } from 'react-native-paper';
+import { AuthContext } from '../context/AuthContext';
+import { useSnackbar } from '../context/SnackbarContext';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:8000/api';
 
 const SignupScreen = ({ navigation }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useContext(AuthContext);
+  const { showSnackbar } = useSnackbar();
 
   const handleSignup = async () => {
      if (!username || !email || !password) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      showSnackbar('Please fill in all fields.');
       return;
     }
+    
+    setIsLoading(true);
     try {
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
@@ -27,61 +33,92 @@ const SignupScreen = ({ navigation }) => {
       if (response.ok) {
         login(data.token);
       } else {
-        Alert.alert('Signup Failed', data.message || 'Something went wrong.');
+        showSnackbar(data.message || 'Signup failed.');
       }
     } catch (error) {
-       Alert.alert('Network Error', 'Unable to connect to the server.');
+       showSnackbar('Network error. Unable to connect to server.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Username"
-        placeholderTextColor="#888"
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor="#888"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#888"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TouchableOpacity style={styles.button} onPress={handleSignup}>
-        <Text style={styles.buttonText}>Sign Up</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-        <Text style={styles.switchText}>
-          Already have an account? <Text style={styles.boldText}>Log In</Text>
-        </Text>
-      </TouchableOpacity>
-    </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.content}>
+        <Text variant="headlineLarge" style={styles.title}>Create Account</Text>
+        <Text variant="bodyMedium" style={styles.subtitle}>Join the CoderGram community</Text>
+        
+        <TextInput
+          label="Username"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+          mode="outlined"
+          style={styles.input}
+          theme={{ colors: { text: '#fff', placeholder: '#888' } }}
+          outlineColor="#333"
+          activeOutlineColor="#6200ee"
+        />
+        
+        <TextInput
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          mode="outlined"
+          style={styles.input}
+          theme={{ colors: { text: '#fff', placeholder: '#888' } }}
+          outlineColor="#333"
+          activeOutlineColor="#6200ee"
+        />
+        
+        <TextInput
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          mode="outlined"
+          style={styles.input}
+          theme={{ colors: { text: '#fff', placeholder: '#888' } }}
+          outlineColor="#333"
+          activeOutlineColor="#6200ee"
+        />
+        
+        <Button
+          mode="contained"
+          onPress={handleSignup}
+          disabled={isLoading}
+          style={styles.button}
+          buttonColor="#6200ee"
+        >
+          {isLoading ? <ActivityIndicator color="#fff" /> : 'Sign Up'}
+        </Button>
+        
+        <Button
+          mode="text"
+          onPress={() => navigation.navigate('Login')}
+          textColor="#6200ee"
+          style={styles.switchButton}
+        >
+          Already have an account? Log In
+        </Button>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', padding: 20 },
-    title: { fontSize: 32, fontWeight: 'bold', color: '#fff', marginBottom: 40 },
-    input: { width: '100%', height: 50, backgroundColor: '#1e1e1e', borderRadius: 8, paddingHorizontal: 15, color: '#fff', fontSize: 16, marginBottom: 10, borderWidth: 1, borderColor: '#333' },
-    button: { width: '100%', height: 50, backgroundColor: '#3797EF', borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
-    buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-    switchText: { color: '#aaa', marginTop: 20 },
-    boldText: { fontWeight: 'bold', color: '#3797EF' },
+    container: { flex: 1, backgroundColor: '#000' },
+    content: { flex: 1, justifyContent: 'center', padding: 20 },
+    title: { color: '#fff', fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
+    subtitle: { color: '#888', textAlign: 'center', marginBottom: 32 },
+    input: { marginBottom: 16, backgroundColor: '#1e1e1e' },
+    button: { marginTop: 8, paddingVertical: 6 },
+    switchButton: { marginTop: 16 },
 });
 
 export default SignupScreen;

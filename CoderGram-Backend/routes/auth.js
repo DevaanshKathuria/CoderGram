@@ -6,7 +6,7 @@ const User = require('../models/User');
 const router = express.Router();
 
 
-router.post('/signup', async (req, res) => {
+router.post('/register', async (req, res) => {
     const { username, email, password } = req.body;
 
     if (!username || !email || !password) {
@@ -21,7 +21,20 @@ router.post('/signup', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
         const newUser = new User({ username, email, password: hashedPassword });
         await newUser.save();
-        res.status(201).json({ message: 'User created successfully!' });
+
+        const payload = {
+            id: newUser._id,
+            username: newUser.username,
+        };
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: '1d',
+        });
+
+        res.status(201).json({ 
+            message: 'User created successfully!',
+            token: token 
+        });
     } catch (error) {
         res.status(500).json({ message: 'Server error during user creation.' });
     }

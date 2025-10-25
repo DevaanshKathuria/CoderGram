@@ -1,19 +1,25 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { AuthContext } from '../AuthContext';
+import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { TextInput, Button, Text, ActivityIndicator } from 'react-native-paper';
+import { AuthContext } from '../context/AuthContext';
+import { useSnackbar } from '../context/SnackbarContext';
 
-const API_URL = 'http://localhost:3000';
+const API_URL = 'http://localhost:8000/api';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useContext(AuthContext);
+  const { showSnackbar } = useSnackbar();
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password.');
+      showSnackbar('Please enter both email and password.');
       return;
     }
+    
+    setIsLoading(true);
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
@@ -26,42 +32,71 @@ const LoginScreen = ({ navigation }) => {
       if (response.ok) {
         login(data.token);
       } else {
-        Alert.alert('Login Failed', data.message || 'Something went wrong.');
+        showSnackbar(data.message || 'Login failed.');
       }
     } catch (error) {
-      Alert.alert('Network Error', 'Unable to connect to the server.');
+      showSnackbar('Network error. Unable to connect to server.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>CoderGram</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor="#888"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#888"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Log In</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-        <Text style={styles.switchText}>
-          Don't have an account? <Text style={styles.boldText}>Sign Up</Text>
-        </Text>
-      </TouchableOpacity>
-    </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.content}>
+        <View style={styles.logoContainer}>
+          <Text variant="displayLarge" style={styles.title}>CoderGram</Text>
+          <Text variant="bodyLarge" style={styles.subtitle}>Share Your Code Journey</Text>
+        </View>
+        
+        <TextInput
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          mode="outlined"
+          style={styles.input}
+          theme={{ colors: { text: '#fff', placeholder: '#888' } }}
+          outlineColor="#333"
+          activeOutlineColor="#6200ee"
+        />
+        
+        <TextInput
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          mode="outlined"
+          style={styles.input}
+          theme={{ colors: { text: '#fff', placeholder: '#888' } }}
+          outlineColor="#333"
+          activeOutlineColor="#6200ee"
+        />
+        
+        <Button
+          mode="contained"
+          onPress={handleLogin}
+          disabled={isLoading}
+          style={styles.button}
+          buttonColor="#6200ee"
+        >
+          {isLoading ? <ActivityIndicator color="#fff" /> : 'Log In'}
+        </Button>
+        
+        <Button
+          mode="text"
+          onPress={() => navigation.navigate('Signup')}
+          textColor="#6200ee"
+          style={styles.switchButton}
+        >
+          Don't have an account? Sign Up
+        </Button>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -69,50 +104,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    alignItems: 'center',
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
-    padding: 20,
+    padding: 24,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 48,
   },
   title: {
-    fontSize: 48,
-    fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 40,
-    fontFamily: 'System',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -1,
+  },
+  subtitle: {
+    color: '#888',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   input: {
-    width: '100%',
-    height: 50,
+    marginBottom: 16,
     backgroundColor: '#1e1e1e',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    color: '#fff',
-    fontSize: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#333',
   },
   button: {
-    width: '100%',
-    height: 50,
-    backgroundColor: '#3797EF',
+    marginTop: 16,
+    paddingVertical: 8,
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  switchText: {
-    color: '#aaa',
+  switchButton: {
     marginTop: 20,
-  },
-  boldText: {
-    fontWeight: 'bold',
-    color: '#3797EF',
   },
 });
 

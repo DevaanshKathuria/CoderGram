@@ -59,24 +59,89 @@ The final product will be a fully functional, Instagram-like social media platfo
 
 ### **7. How to Run (Instructions for Developers)**
 
-1.  **Clone the repository:**
+#### **Backend Setup**
+
+1.  **Navigate to the backend directory:**
     ```bash
-    git clone [repository_url]
+    cd CoderGram-Backend
     ```
-2.  **Navigate to the project directory:**
-    ```bash
-    cd CoderGram
-    ```
-3.  **Install dependencies:**
+2.  **Install dependencies:**
     ```bash
     npm install
     ```
-4.  **Set up environment variables:**
-      * Create a `.env` file in the root directory.
-      * Add your `MongoDB connection string` and `Cloudinary credentials`.
-      * Set up a `JWT secret key`.
-5.  **Run the application:**
+3.  **Set up environment variables:**
+      * Create a `.env` file in the `CoderGram-Backend` directory.
+      * Add the following variables:
+        ```
+        MONGO_URI=your_mongodb_connection_string
+        JWT_SECRET=your_jwt_secret_key
+        PORT=8000
+        ```
+4.  **Run the backend server:**
+    ```bash
+    node index.js
+    ```
+    The backend will run on `http://localhost:8000`
+
+#### **Frontend Setup (React Native Mobile App)**
+
+1.  **Navigate to the frontend directory:**
+    ```bash
+    cd CoderGram-FrontEnd
+    ```
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+3.  **Start the Expo development server:**
     ```bash
     npm start
     ```
+4.  **Run on device/emulator:**
+    * Press `i` for iOS simulator
+    * Press `a` for Android emulator
+    * Scan QR code with Expo Go app on your physical device
+
+-----
+
+### **8. API Endpoints**
+
+#### **Authentication**
+- `POST /api/auth/register` - Register a new user
+- `POST /api/auth/login` - Login user
+
+#### **Users**
+- `GET /api/users/me` - Get current user profile
+- `GET /api/users/:username` - Get user profile by username
+- `GET /api/users/search?query=` - Search users
+- `PUT /api/users/follow/:id` - Follow a user
+- `PUT /api/users/unfollow/:id` - Unfollow a user
+
+#### **Posts**
+- `GET /api/posts` - Get all posts (feed)
+- `GET /api/posts/:id` - Get single post
+- `POST /api/posts` - Create a new post
+- `PUT /api/posts/:id/like` - Toggle like on a post
+
+#### **Comments**
+- `GET /api/comments/post/:postId` - Get comments for a post
+- `POST /api/comments` - Create a comment
+- `DELETE /api/comments/:id` - Delete a comment
+
+-----
+
+### **9. Features Implemented**
+
+✅ **Material Design UI** - Built with React Native Paper  
+✅ **Like System** - Toggle likes on posts with real-time updates  
+✅ **Comment System** - Full CRUD operations for comments  
+✅ **User Search** - Discover users with search functionality  
+✅ **Code Sharing** - Post code snippets with syntax highlighting  
+✅ **User Profiles** - View user stats and posts  
+✅ **Bottom Tab Navigation** - Easy navigation between Feed, Search, Create, and Profile  
+✅ **Snackbar Notifications** - Non-intrusive error and success messages  
+✅ **Loading States** - ActivityIndicator for all async operations  
+✅ **Empty States** - User-friendly messages when no data is available  
+✅ **Secure Authentication** - JWT-based authentication with AsyncStorage  
+
 -----
