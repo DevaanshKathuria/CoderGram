@@ -5,7 +5,7 @@ import { AuthContext } from '../context/AuthContext';
 import PostCard from '../components/PostCard';
 import { Avatar, Button, Title, Paragraph, ActivityIndicator, Text, Surface } from 'react-native-paper';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:8000/api';
 
 const ProfileScreen = ({ route, navigation }) => {
   const { user, userToken } = useContext(AuthContext); // 'user' can be null on first render
