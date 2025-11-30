@@ -1,0 +1,21 @@
+# Backend
+CoderGram-Backend/node_modules/
+CoderGram-Backend/.env
+
+# Frontend
+CoderGram-FrontEnd/node_modules/
+CoderGram-FrontEnd/node_modules_trash_1/
+CoderGram-FrontEnd/.expo/
+CoderGram-FrontEnd/dist/
+CoderGram-FrontEnd/web-build/
+CoderGram-FrontEnd/ios/
+CoderGram-FrontEnd/android/
+
+# General
+node_modules/
+.DS_Store
+*.pem
+.env*.local
+npm-debug.*
+yarn-debug.*
+yarn-error.*
