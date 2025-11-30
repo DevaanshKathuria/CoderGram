@@ -1,26 +1,28 @@
 {
   "expo": {
-    "name": "CoderGram-FrontEnd",
-    "slug": "CoderGram-FrontEnd",
+    "name": "CoderGram",
+    "slug": "CoderGram",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gamma-demon.CoderGram"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.gamma_demon.CoderGram"
     },
     "web": {
       "favicon": "./assets/favicon.png"
