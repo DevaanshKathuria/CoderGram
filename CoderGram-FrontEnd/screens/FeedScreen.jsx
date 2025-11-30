@@ -1,149 +1,97 @@
-import React, { useState, useContext, useCallback, useRef } from 'react';
-import { FlatList, RefreshControl, View, StyleSheet, StatusBar } from 'react-native';
-import { ActivityIndicator, Text } from 'react-native-paper';
-import { useFocusEffect } from '@react-navigation/native';
-import { AuthContext } from '../context/AuthContext';
-import { useSnackbar } from '../context/SnackbarContext';
+
+import React, { useEffect, useState } from 'react';
+import { FlatList, View, StyleSheet, RefreshControl, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import client from '../api/client';
 import PostCard from '../components/PostCard';
+import { ActivityIndicator, IconButton, Text } from 'react-native-paper';
+import { useSnackbar } from '../context/SnackbarContext';
 
-const API_URL = 'http://localhost:8000/api';
-
-const FeedScreen = ({ navigation }) => {
-  const { userToken } = useContext(AuthContext);
-  const { showSnackbar } = useSnackbar();
+export default function FeedScreen({ navigation }) {
   const [posts, setPosts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { showSnackbar } = useSnackbar();
 
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = async () => {
     try {
-      const response = await fetch(`${API_URL}/posts`, {
-        headers: { 'Authorization': `Bearer ${userToken}` },
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        setPosts(data);
-      } else {
-        showSnackbar(data.message || 'Failed to fetch posts.');
-      }
-    } catch (error) {
-      showSnackbar('Network error. Could not connect to server.');
+      const res = await client.get('/posts');
+      const data = res.data.posts || res.data;
+      setPosts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.log('Fetch posts err', err.response?.data || err.message);
+      showSnackbar('Could not load feed');
     } finally {
-      setIsLoading(false);
-      setRefreshing(false);
+      setLoading(false);
     }
-  }, [userToken, showSnackbar]);
+  };
 
-  const handleCommentPress = useCallback((post) => {
-    navigation.navigate('Comments', { postId: post._id });
-  }, [navigation]);
+  useEffect(() => { fetchPosts(); }, []);
 
-  const renderPost = useCallback(({ item }) => (
-    <PostCard post={item} onCommentPress={handleCommentPress} />
-  ), [handleCommentPress]);
-
-  const keyExtractor = useCallback((item) => item._id, []);
-
-  const onRefresh = useCallback(() => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    fetchPosts();
-  }, [fetchPosts]);
+    await fetchPosts();
+    setRefreshing(false);
+  };
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-      
-      const loadData = async () => {
-        setIsLoading(true);
-        await fetchPosts();
-      };
-
-      if (isActive) {
-        loadData();
-      }
-
-      return () => {
-        isActive = false;
-      };
-    }, [fetchPosts])
-  );
-
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6200ee" />
-      </View>
-    );
-  }
+  if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Text variant="headlineMedium" style={styles.logo}>CoderGram</Text>
+        <IconButton icon="email-outline" size={24} />
+      </View>
       <FlatList
         data={posts}
-        renderItem={renderPost}
-        keyExtractor={keyExtractor}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh}
-            tintColor="#6200ee"
-            colors={['#6200ee']}
-          />
-        }
-        ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <Text variant="titleLarge" style={styles.emptyText}>
-              Welcome to CoderGram! 👋
-            </Text>
+        keyExtractor={(item) => item._id || item.id}
+        renderItem={({ item }) => (
+          <PostCard post={item} onOpenComments={(post) => navigation.navigate('Comments', { post })} />
+        )}
+        contentContainerStyle={posts.length === 0 ? styles.emptyContainer : { paddingBottom: 20 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text variant="titleLarge" style={styles.emptyText}>No posts yet</Text>
             <Text variant="bodyMedium" style={styles.emptySubtext}>
-              Start by creating your first post or search for users to follow
+              Follow users or create your first post!
             </Text>
           </View>
-        )}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={posts.length === 0 ? styles.emptyList : null}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={5}
-        updateCellsBatchingPeriod={50}
-        initialNumToRender={5}
-        windowSize={10}
+        }
       />
-    </View>
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: 'white' },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#000',
+    paddingHorizontal: 15,
+    paddingTop: 10,
+    paddingBottom: 5,
+  },
+  logo: {
+    fontFamily: Platform.OS === 'ios' ? 'Noteworthy' : 'serif', 
+    fontWeight: 'bold',
   },
   emptyContainer: {
+    flexGrow: 1,
+  },
+  emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 40,
-  },
-  emptyList: {
-    flexGrow: 1,
+    paddingTop: 100,
   },
   emptyText: {
-    color: '#fff',
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: 8,
+    color: '#666',
   },
   emptySubtext: {
-    color: '#888',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
+    color: '#999',
+  }
 });
-
-export default FeedScreen;

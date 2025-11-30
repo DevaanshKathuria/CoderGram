@@ -1,124 +1,104 @@
+
 import React, { useState, useContext } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { TextInput, Button, Text, ActivityIndicator } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { TextInput, Button, Text } from 'react-native-paper';
+import client from '../api/client';
 import { AuthContext } from '../context/AuthContext';
 import { useSnackbar } from '../context/SnackbarContext';
 
-const API_URL = 'http://localhost:8000/api';
-
-const SignupScreen = ({ navigation }) => {
+export default function SignupScreen({ navigation }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useContext(AuthContext);
+  const [loading, setLoading] = useState(false);
+  const { setToken } = useContext(AuthContext);
   const { showSnackbar } = useSnackbar();
 
   const handleSignup = async () => {
-     if (!username || !email || !password) {
-      showSnackbar('Please fill in all fields.');
-      return;
-    }
-    
-    setIsLoading(true);
+    setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, email, password }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        login(data.token);
-      } else {
-        showSnackbar(data.message || 'Signup failed.');
-      }
-    } catch (error) {
-       showSnackbar('Network error. Unable to connect to server.');
+      const res = await client.post('/auth/register', { username, email, password });
+      const token = res.data.token || res.data.accessToken || res.data;
+      if (!token) throw new Error('No token in response');
+      await setToken(token);
+    } catch (err) {
+      console.log('Signup err', err.response?.data || err.message);
+      showSnackbar('Signup failed: ' + (err.response?.data?.message || err.message));
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.content}>
-        <Text variant="headlineLarge" style={styles.title}>Create Account</Text>
-        <Text variant="bodyMedium" style={styles.subtitle}>Join the CoderGram community</Text>
-        
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#1e1e1e' }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.container}
+      >
+        <Text variant="headlineMedium" style={styles.title}>Create Account</Text>
         <TextInput
           label="Username"
           value={username}
           onChangeText={setUsername}
-          autoCapitalize="none"
-          mode="outlined"
           style={styles.input}
-          theme={{ colors: { text: '#fff', placeholder: '#888' } }}
-          outlineColor="#333"
-          activeOutlineColor="#6200ee"
+          autoCapitalize="none"
         />
-        
         <TextInput
           label="Email"
           value={email}
           onChangeText={setEmail}
+          style={styles.input}
           keyboardType="email-address"
           autoCapitalize="none"
-          mode="outlined"
-          style={styles.input}
-          theme={{ colors: { text: '#fff', placeholder: '#888' } }}
-          outlineColor="#333"
-          activeOutlineColor="#6200ee"
         />
-        
         <TextInput
           label="Password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          mode="outlined"
           style={styles.input}
-          theme={{ colors: { text: '#fff', placeholder: '#888' } }}
-          outlineColor="#333"
-          activeOutlineColor="#6200ee"
         />
-        
         <Button
           mode="contained"
           onPress={handleSignup}
-          disabled={isLoading}
+          loading={loading}
           style={styles.button}
-          buttonColor="#6200ee"
         >
-          {isLoading ? <ActivityIndicator color="#fff" /> : 'Sign Up'}
+          Create Account
         </Button>
-        
         <Button
-          mode="text"
-          onPress={() => navigation.navigate('Login')}
-          textColor="#6200ee"
+          onPress={() => navigation.goBack()}
           style={styles.switchButton}
         >
-          Already have an account? Log In
+          Already have an account? Login
         </Button>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#000' },
-    content: { flex: 1, justifyContent: 'center', padding: 20 },
-    title: { color: '#fff', fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
-    subtitle: { color: '#888', textAlign: 'center', marginBottom: 32 },
-    input: { marginBottom: 16, backgroundColor: '#1e1e1e' },
-    button: { marginTop: 8, paddingVertical: 6 },
-    switchButton: { marginTop: 16 },
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+    backgroundColor: '#1e1e1e',
+  },
+  title: {
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  input: {
+    marginBottom: 16,
+    backgroundColor: '#1e1e1e',
+  },
+  button: {
+    marginTop: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  switchButton: {
+    marginTop: 20,
+  },
 });
-
-export default SignupScreen;

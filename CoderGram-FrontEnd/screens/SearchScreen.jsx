@@ -1,146 +1,67 @@
-import React, { useState, useContext, useRef } from 'react';
+
+import React, { useState, useRef } from 'react';
 import { View, FlatList, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar, List, Avatar, ActivityIndicator, Text } from 'react-native-paper';
-import { AuthContext } from '../context/AuthContext';
+import client from '../api/client';
 import { useSnackbar } from '../context/SnackbarContext';
 
-const API_URL = 'http://localhost:8000/api';
-
-const SearchScreen = ({ navigation }) => {
-  const { userToken } = useContext(AuthContext);
+export default function SearchScreen({ navigation }) {
   const { showSnackbar } = useSnackbar();
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const searchTimeout = useRef(null);
 
-  const searchUsers = async (query) => {
-    if (!query.trim()) {
+  const doSearch = async (q) => {
+    if (!q.trim()) {
       setUsers([]);
       return;
     }
-
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/users/search?query=${encodeURIComponent(query)}`, {
-        headers: { 'Authorization': `Bearer ${userToken}` },
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        setUsers(data);
-      } else {
-        showSnackbar(data.message || 'Search failed.');
-      }
-    } catch (error) {
-      showSnackbar('Network error. Could not connect to server.');
+      const res = await client.get(`/users/search?q=${encodeURIComponent(q)}`);
+      const data = res.data.users || res.data;
+      setUsers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.log('Search err', err);
+      showSnackbar('Search failed');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const onChangeSearch = (query) => {
-    setSearchQuery(query);
-    
-    if (searchTimeout.current) {
-      clearTimeout(searchTimeout.current);
-    }
-
-    searchTimeout.current = setTimeout(() => {
-      searchUsers(query);
-    }, 500);
-  };
-
-  const handleUserPress = (username) => {
-    navigation.navigate('Profile', { username });
+  const onChangeSearch = (q) => {
+    setSearchQuery(q);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => doSearch(q), 400);
   };
 
   return (
-    <View style={styles.container}>
-      <Searchbar
-        placeholder="Search users..."
-        onChangeText={onChangeSearch}
-        value={searchQuery}
-        style={styles.searchbar}
-        iconColor="#fff"
-        placeholderTextColor="#888"
-        inputStyle={{ color: '#fff' }}
-      />
-
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#6200ee" />
-        </View>
-      ) : (
-        <FlatList
-          data={users}
-          keyExtractor={(item) => item._id}
-          renderItem={({ item }) => (
-            <List.Item
-              title={item.username}
-              description={item.bio || 'No bio'}
-              left={(props) => (
-                item.profilePicture ? (
-                  <Avatar.Image
-                    {...props}
-                    size={48}
-                    source={{ uri: item.profilePicture }}
-                  />
-                ) : (
-                  <Avatar.Text
-                    {...props}
-                    size={48}
-                    label={item.username.charAt(0).toUpperCase()}
-                  />
-                )
-              )}
-              onPress={() => handleUserPress(item.username)}
-              titleStyle={{ color: '#fff' }}
-              descriptionStyle={{ color: '#888' }}
-              style={styles.listItem}
-            />
-          )}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyContainer}>
-              <Text variant="bodyMedium" style={styles.emptyText}>
-                {searchQuery ? 'No users found' : 'Search for users to discover'}
-              </Text>
-            </View>
-          )}
-        />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <Searchbar placeholder="Search users" onChangeText={onChangeSearch} value={searchQuery} />
+      {isLoading && <ActivityIndicator style={{ marginTop: 12 }} />}
+      {!isLoading && users.length === 0 && searchQuery.trim().length > 0 && (
+        <View style={styles.emptyContainer}><Text style={styles.emptyText}>No users found</Text></View>
       )}
-    </View>
+      <FlatList
+        data={users}
+        keyExtractor={(item) => item._id || item.id}
+        renderItem={({ item }) => (
+          <List.Item
+            title={item.username || item.name}
+            description={item.bio || 'No bio'}
+            left={() => <Avatar.Image size={40} source={{ uri: item.profilePicture || 'https://via.placeholder.com/40' }} />}
+            onPress={() => navigation.navigate('Profile', { username: item.username })}
+          />
+        )}
+      />
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  searchbar: {
-    margin: 16,
-    backgroundColor: '#1e1e1e',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listItem: {
-    backgroundColor: '#000',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-  },
-  emptyText: {
-    color: '#888',
-  },
+  container: { flex: 1, padding: 8 },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 40 },
+  emptyText: { color: '#888' },
 });
-
-export default SearchScreen;

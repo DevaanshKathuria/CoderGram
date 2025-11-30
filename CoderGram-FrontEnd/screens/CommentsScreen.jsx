@@ -1,216 +1,103 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { TextInput, IconButton, List, Avatar, ActivityIndicator, Text } from 'react-native-paper';
-import { AuthContext } from '../context/AuthContext';
-import { useSnackbar } from '../context/SnackbarContext';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { TextInput, Button, List, Appbar, Avatar } from 'react-native-paper';
+import client from '../api/client';
 
-const API_URL = 'http://localhost:8000/api';
-
-const CommentsScreen = ({ route }) => {
-  const { postId } = route.params;
-  const { userToken } = useContext(AuthContext);
-  const { showSnackbar } = useSnackbar();
+export default function CommentsScreen({ route, navigation }) {
+  const { post } = route.params;
   const [comments, setComments] = useState([]);
-  const [commentText, setCommentText] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchComments();
-  }, [postId]);
-
-  const fetchComments = async () => {
+  const loadComments = async () => {
     try {
-      const response = await fetch(`${API_URL}/comments/post/${postId}`, {
-        headers: { 'Authorization': `Bearer ${userToken}` },
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        setComments(data);
-      } else {
-        showSnackbar(data.message || 'Failed to fetch comments.');
-      }
-    } catch (error) {
-      showSnackbar('Network error. Could not connect to server.');
-    } finally {
-      setIsLoading(false);
+      const res = await client.get(`/comments/post/${post._id}`);
+      const data = res.data.comments || res.data;
+      setComments(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.log('Load comments err', err);
     }
   };
 
-  const handleAddComment = async () => {
-    if (!commentText.trim()) {
-      showSnackbar('Comment cannot be empty.');
-      return;
-    }
+  useEffect(() => { loadComments(); }, []);
 
-    setIsSubmitting(true);
+  const addComment = async () => {
+    if (!text.trim()) return;
+    setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/comments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userToken}`,
-        },
-        body: JSON.stringify({ text: commentText, postId }),
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        setComments([data, ...comments]);
-        setCommentText('');
-      } else {
-        showSnackbar(data.message || 'Failed to add comment.');
-      }
-    } catch (error) {
-      showSnackbar('Network error. Could not connect to server.');
-    } finally {
-      setIsSubmitting(false);
-    }
+      await client.post('/comments', { postId: post._id, text });
+      setText('');
+      await loadComments();
+    } catch (err) {
+      console.log('Comment err', err);
+      alert('Could not post comment');
+    } finally { setLoading(false); }
   };
-
-  const handleDeleteComment = async (commentId) => {
-    try {
-      const response = await fetch(`${API_URL}/comments/${commentId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${userToken}` },
-      });
-
-      if (response.ok) {
-        setComments(comments.filter(c => c._id !== commentId));
-        showSnackbar('Comment deleted.');
-      } else {
-        const data = await response.json();
-        showSnackbar(data.message || 'Failed to delete comment.');
-      }
-    } catch (error) {
-      showSnackbar('Network error. Could not connect to server.');
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6200ee" />
-      </View>
-    );
-  }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={90}
-    >
-      <FlatList
-        data={comments}
-        keyExtractor={(item) => item._id}
-        renderItem={({ item }) => (
-          <List.Item
-            title={item.author?.username || 'Unknown User'}
-            description={item.text}
-            left={(props) => (
-              item.author?.profilePicture ? (
-                <Avatar.Image
-                  {...props}
-                  size={40}
-                  source={{ uri: item.author.profilePicture }}
-                />
-              ) : (
-                <Avatar.Text
-                  {...props}
-                  size={40}
-                  label={(item.author?.username || 'U').charAt(0).toUpperCase()}
-                />
-              )
-            )}
-            right={(props) =>
-              item.author?._id === userToken ? (
-                <IconButton
-                  {...props}
-                  icon="delete"
-                  iconColor="#e91e63"
-                  onPress={() => handleDeleteComment(item._id)}
-                />
-              ) : null
-            }
-            titleStyle={{ color: '#fff', fontWeight: 'bold' }}
-            descriptionStyle={{ color: '#ddd' }}
-            descriptionNumberOfLines={10}
-            style={styles.commentItem}
-          />
-        )}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <Text variant="bodyMedium" style={styles.emptyText}>
-              No comments yet. Be the first to comment!
-            </Text>
-          </View>
-        )}
-        contentContainerStyle={comments.length === 0 ? styles.emptyList : null}
-      />
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }} edges={['top']}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <Appbar.Header>
+          <Appbar.BackAction onPress={() => navigation.goBack()} />
+          <Appbar.Content title="Comments" />
+        </Appbar.Header>
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          value={commentText}
-          onChangeText={setCommentText}
-          placeholder="Add a comment..."
-          mode="outlined"
-          style={styles.input}
-          theme={{ colors: { text: '#fff', placeholder: '#888' } }}
-          outlineColor="#333"
-          activeOutlineColor="#6200ee"
-          right={
-            <TextInput.Icon
-              icon="send"
-              onPress={handleAddComment}
-              disabled={isSubmitting || !commentText.trim()}
-              color={commentText.trim() ? '#6200ee' : '#555'}
+        <FlatList
+          data={comments}
+          keyExtractor={item => item._id || item.id}
+          renderItem={({ item }) => (
+            <List.Item
+              title={item.author?.username || 'Unknown'}
+              description={item.text}
+              left={() => (
+                <Avatar.Image
+                  size={40}
+                  source={{ uri: item.author?.profilePicture || 'https://via.placeholder.com/40' }}
+                />
+              )}
             />
-          }
+          )}
+          contentContainerStyle={styles.listContent}
         />
-      </View>
-    </KeyboardAvoidingView>
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            label="Add a comment..."
+            value={text}
+            onChangeText={setText}
+            style={styles.input}
+            mode="outlined"
+          />
+          <Button
+            onPress={addComment}
+            loading={loading}
+            mode="contained"
+            style={styles.sendButton}
+          >
+            Send
+          </Button>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-  },
-  commentItem: {
-    backgroundColor: '#000',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
+  container: { flex: 1, backgroundColor: 'white' },
+  listContent: { paddingBottom: 10 },
   inputContainer: {
-    padding: 8,
-    backgroundColor: '#1e1e1e',
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  input: {
-    backgroundColor: '#1e1e1e',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    padding: 10,
     alignItems: 'center',
-    paddingTop: 100,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    backgroundColor: 'white'
   },
-  emptyList: {
-    flexGrow: 1,
-  },
-  emptyText: {
-    color: '#888',
-  },
+  input: { flex: 1, marginRight: 10, backgroundColor: 'white' },
+  sendButton: { alignSelf: 'center' }
 });
-
-export default CommentsScreen;

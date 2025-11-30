@@ -1,166 +1,218 @@
-import React, { useState, useContext, useCallback } from 'react';
-import { View, StyleSheet, FlatList, Alert } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+
+import React, { useEffect, useState, useContext } from 'react';
+import { View, StyleSheet, FlatList, Image, TouchableOpacity, Dimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, Button, ActivityIndicator, Avatar, IconButton } from 'react-native-paper';
+import client from '../api/client';
 import { AuthContext } from '../context/AuthContext';
-import PostCard from '../components/PostCard';
-import { Avatar, Button, Title, Paragraph, ActivityIndicator, Text, Surface } from 'react-native-paper';
+import { API_BASE } from '../config';
 
-const API_URL = 'http://localhost:8000/api';
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return 'https://via.placeholder.com/150';
+  if (imagePath.startsWith('http')) return imagePath;
+  const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+  return `${API_BASE.replace('/api', '')}/${cleanPath}`;
+};
 
-const ProfileScreen = ({ route, navigation }) => {
-  const { user, userToken } = useContext(AuthContext); // 'user' can be null on first render
-  const [profileData, setProfileData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isFollowing, setIsFollowing] = useState(false);
+const { width } = Dimensions.get('window');
+const ITEM_SIZE = width / 3;
 
-  // --- START OF FIX ---
+export default function ProfileScreen({ navigation, route }) {
+  const { user: currentUser, signOut, setUser: setAuthUser } = useContext(AuthContext) || {};
+  const [profile, setProfile] = useState(null);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [following, setFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
-  // We must wait for the user object to be loaded from context
-  if (!user) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator animating={true} size="large" />
-      </View>
-    );
-  }
+  const isMyProfile = !route?.params?.username || route?.params?.username === currentUser?.username;
 
-  // If we are here, 'user' is guaranteed to be loaded
-  const username = route.params?.username || user.username;
-  const isMyProfile = user.username === username;
-
-  // --- END OF FIX ---
-
-  const fetchProfile = async () => {
-    // This check ensures we don't try to fetch with an 'undefined' username
-    // if something went wrong, though the guard clause above should prevent it.
-    if (!username) {
-        setIsLoading(false);
-        return;
-    }
-
+  const loadProfile = async () => {
     try {
-      const response = await fetch(`${API_URL}/users/${username}`, {
-        headers: { 'Authorization': `Bearer ${userToken}` },
-      });
-      const data = await response.json();
+      setLoading(true);
+      if (isMyProfile) {
+        
+        const res = await client.get('/users/me');
+        const userData = res.data.user || res.data;
+        setProfile(userData);
 
-      if (response.ok) {
-        setProfileData(data);
-        setIsFollowing(data.user.followers.includes(user._id));
+        const res2 = await client.get('/posts?mine=true');
+        const data = res2.data.posts || res2.data;
+        setPosts(Array.isArray(data) ? data : []);
       } else {
-        Alert.alert('Error', data.message || 'Failed to fetch profile.');
+        
+        const username = route.params.username;
+        const res = await client.get(`/users/${username}`);
+        const userData = res.data.user || res.data; 
+        setProfile(userData);
+        setPosts(res.data.posts || []);
+
+        
+        if (currentUser && currentUser.following) {
+          setFollowing(currentUser.following.includes(userData._id));
+        }
       }
-    } catch (error) {
-      Alert.alert('Network Error', 'Could not connect to the server.');
+    } catch (err) {
+      console.log('Profile load err', err);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadProfile();
+  }, [route?.params?.username, isMyProfile]);
+
   
-  useFocusEffect(
-    useCallback(() => {
-      setIsLoading(true);
-      setProfileData(null);
-      fetchProfile();
-    }, [username, userToken]) // 'username' is now a safe dependency
-  );
-
-  const handleFollowToggle = async () => {
-    // ... (rest of the function is fine)
-    const endpoint = isFollowing ? 'unfollow' : 'follow';
-    try {
-      const response = await fetch(`${API_URL}/users/${profileData.user._id}/${endpoint}`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${userToken}` },
-      });
-
-      if (response.ok) {
-        setIsFollowing(!isFollowing);
-        setProfileData(prevData => ({
-          ...prevData,
-          user: {
-            ...prevData.user,
-            followers: isFollowing
-              ? prevData.user.followers.filter(id => id !== user._id)
-              : [...prevData.user.followers, user._id],
-          },
-        }));
-      } else {
-        Alert.alert('Error', 'Could not update follow status.');
-      }
-    } catch (error) {
-      Alert.alert('Network Error', 'Something went wrong.');
-    }
-  };
-
-  const renderProfileButton = () => {
-    // ... (rest of the function is fine)
+  useEffect(() => {
     if (isMyProfile) {
-      return <Button mode="outlined" style={styles.profileButton} onPress={() => { /* Navigate to Edit Profile */ }}>Edit Profile</Button>;
+      const unsubscribe = navigation.addListener('focus', loadProfile);
+      return unsubscribe;
     }
-    return (
-      <Button 
-        mode={isFollowing ? "outlined" : "contained"} 
-        style={styles.profileButton}
-        onPress={handleFollowToggle}
-      >
-        {isFollowing ? 'Following' : 'Follow'}
-      </Button>
-    );
+  }, [navigation, isMyProfile]);
+
+  const handleFollow = async () => {
+    if (!profile) return;
+    setFollowLoading(true);
+    try {
+      if (following) {
+        await client.put(`/users/unfollow/${profile._id}`);
+        setFollowing(false);
+        
+        if (currentUser && setAuthUser) {
+          const newFollowing = currentUser.following.filter(id => id !== profile._id);
+          setAuthUser({ ...currentUser, following: newFollowing });
+        }
+      } else {
+        await client.put(`/users/follow/${profile._id}`);
+        setFollowing(true);
+        
+        if (currentUser && setAuthUser) {
+          const newFollowing = [...(currentUser.following || []), profile._id];
+          setAuthUser({ ...currentUser, following: newFollowing });
+        }
+      }
+      
+      loadProfile();
+    } catch (err) {
+      console.log('Follow error', err);
+    } finally {
+      setFollowLoading(false);
+    }
   };
 
-  if (isLoading || !profileData) {
-    return <View style={styles.center}><ActivityIndicator animating={true} size="large" /></View>;
-  }
-
-  const { user: profileUser, posts } = profileData;
+  if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
 
   const renderHeader = () => (
-    // ... (rest of the function is fine)
-    <Surface style={styles.headerContainer}>
-        {profileUser.profilePicture 
-          ? <Avatar.Image size={100} source={{ uri: profileUser.profilePicture }} />
-          : <Avatar.Icon size={100} icon="account" />
-        }
-        <Title style={styles.username}>{profileUser.username}</Title>
-        {profileUser.bio && <Paragraph style={styles.bio}>{profileUser.bio}</Paragraph>}
+    <View style={styles.headerContainer}>
+      <View style={styles.headerTop}>
+        <Avatar.Image size={80} source={{ uri: getImageUrl(profile?.profilePicture) }} />
         <View style={styles.statsContainer}>
-            <View style={styles.stat}><Title>{posts.length}</Title><Text>Posts</Text></View>
-            <View style={styles.stat}><Title>{profileData.user.followers.length}</Title><Text>Followers</Text></View>
-            <View style={styles.stat}><Title>{profileData.user.following.length}</Title><Text>Following</Text></View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{posts.length}</Text>
+            <Text style={styles.statLabel}>Posts</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{profile?.followers?.length || 0}</Text>
+            <Text style={styles.statLabel}>Followers</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{profile?.following?.length || 0}</Text>
+            <Text style={styles.statLabel}>Following</Text>
+          </View>
         </View>
-        {renderProfileButton()}
-    </Surface>
+      </View>
+
+      <View style={styles.bioContainer}>
+        <Text style={styles.name}>{profile?.username}</Text>
+        <Text style={styles.bio}>{profile?.bio || 'No bio yet.'}</Text>
+      </View>
+
+      <View style={styles.actions}>
+        {isMyProfile ? (
+          <>
+            <Button
+              mode="contained"
+              buttonColor="#efefef"
+              textColor="black"
+              style={styles.editButton}
+              onPress={() => navigation.navigate('EditProfile', { user: profile })}
+            >
+              Edit Profile
+            </Button>
+            <Button
+              mode="contained"
+              buttonColor="#efefef"
+              textColor="black"
+              style={styles.logoutButton}
+              onPress={signOut}
+            >
+              Logout
+            </Button>
+          </>
+        ) : (
+          <Button
+            mode="contained"
+            buttonColor={following ? "#efefef" : "#0095f6"}
+            textColor={following ? "black" : "white"}
+            style={styles.editButton}
+            onPress={handleFollow}
+            loading={followLoading}
+          >
+            {following ? 'Following' : 'Follow'}
+          </Button>
+        )}
+      </View>
+    </View>
+  );
+
+  const renderItem = ({ item }) => (
+    <TouchableOpacity onPress={() => navigation.navigate('Comments', { post: item })}>
+      {item.image ? (
+        <Image source={{ uri: getImageUrl(item.image) }} style={styles.gridImage} />
+      ) : (
+        <View style={[styles.gridImage, styles.codePlaceholder]}>
+          <Avatar.Icon size={40} icon="code-tags" style={{ backgroundColor: 'transparent' }} color="white" />
+        </View>
+      )}
+    </TouchableOpacity>
   );
 
   return (
-    // ... (rest of the component is fine)
-    <FlatList
-      style={styles.container}
-      data={posts}
-      renderItem={({ item }) => <PostCard post={item} />}
-      keyExtractor={(item) => item._id}
-      ListHeaderComponent={renderHeader}
-      onRefresh={fetchProfile}
-      refreshing={isLoading}
-      ListEmptyComponent={() => (<View style={styles.center}><Paragraph>No Posts Yet</Paragraph></View>)}
-    />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {!isMyProfile && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 10 }}>
+          <IconButton icon="arrow-left" onPress={() => navigation.goBack()} />
+          <Text variant="titleMedium">{profile?.username}</Text>
+        </View>
+      )}
+      <FlatList
+        data={posts}
+        keyExtractor={item => item._id || item.id}
+        renderItem={renderItem}
+        numColumns={3}
+        ListHeaderComponent={renderHeader}
+        contentContainerStyle={{ paddingBottom: 20 }}
+      />
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  headerContainer: { alignItems: 'center', padding: 20, elevation: 2 },
-  username: { marginTop: 10, fontSize: 24 },
-  bio: { marginTop: 5, textAlign: 'center' },
-  statsContainer: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 20 },
-  stat: { alignItems: 'center' },
-  profileButton: {
-    width: '80%',
-    marginTop: 20,
-  },
+  container: { flex: 1, backgroundColor: 'white' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  headerContainer: { padding: 15 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
+  statsContainer: { flexDirection: 'row', flex: 1, justifyContent: 'space-around', marginLeft: 20 },
+  statItem: { alignItems: 'center' },
+  statNumber: { fontWeight: 'bold', fontSize: 18 },
+  statLabel: { fontSize: 12 },
+  bioContainer: { marginBottom: 15 },
+  name: { fontWeight: 'bold', fontSize: 16, marginBottom: 2 },
+  bio: { fontSize: 14 },
+  actions: { flexDirection: 'row', gap: 10 },
+  editButton: { flex: 1, borderRadius: 5 },
+  logoutButton: { borderRadius: 5 },
+  gridImage: { width: ITEM_SIZE, height: ITEM_SIZE, borderWidth: 1, borderColor: 'white' },
+  codePlaceholder: { backgroundColor: '#1e1e1e', justifyContent: 'center', alignItems: 'center' }
 });
-
-export default ProfileScreen;
-
