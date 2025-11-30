@@ -33,8 +33,8 @@ const LoginScreen = ({ navigation }) => {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#1e1e1e' }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
         <Text variant="headlineMedium" style={{color: 'white', textAlign: 'center', marginBottom: 20}}>Login</Text>
-        <TextInput label="Email" value={email} onChangeText={setEmail} style={styles.input} autoCapitalize="none" />
-        <TextInput label="Password" secureTextEntry value={password} onChangeText={setPassword} style={styles.input} />
+        <TextInput label="Email" value={email} onChangeText={setEmail} style={styles.input} autoCapitalize="none" textColor="white" theme={{ colors: { onSurfaceVariant: '#ccc' } }} />
+        <TextInput label="Password" secureTextEntry value={password} onChangeText={setPassword} style={styles.input} textColor="white" theme={{ colors: { onSurfaceVariant: '#ccc' } }} />
         <Button mode="contained" onPress={handleLogin} style={styles.button} loading={isLoading}>Login</Button>
         <Button onPress={() => navigation.navigate('Signup')} style={styles.switchButton}>Create account</Button>
       </KeyboardAvoidingView>

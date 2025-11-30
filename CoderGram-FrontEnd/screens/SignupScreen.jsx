@@ -43,6 +43,8 @@ export default function SignupScreen({ navigation }) {
           onChangeText={setUsername}
           style={styles.input}
           autoCapitalize="none"
+          textColor="white"
+          theme={{ colors: { onSurfaceVariant: '#ccc' } }}
         />
         <TextInput
           label="Email"
@@ -51,6 +53,8 @@ export default function SignupScreen({ navigation }) {
           style={styles.input}
           keyboardType="email-address"
           autoCapitalize="none"
+          textColor="white"
+          theme={{ colors: { onSurfaceVariant: '#ccc' } }}
         />
         <TextInput
           label="Password"
@@ -58,6 +62,8 @@ export default function SignupScreen({ navigation }) {
           onChangeText={setPassword}
           secureTextEntry
           style={styles.input}
+          textColor="white"
+          theme={{ colors: { onSurfaceVariant: '#ccc' } }}
         />
         <Button
           mode="contained"
