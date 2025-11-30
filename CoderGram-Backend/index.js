@@ -10,8 +10,15 @@ const commentsRoutes = require('./routes/comments');
 const app = express();
 const port = process.env.PORT || 8000;
 
-app.use(express.json());
 const path = require('path');
+const fs = require('fs');
+
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)){
+    fs.mkdirSync(uploadsDir);
+}
+
+app.use(express.json());
 const cors = require('cors');
 app.use(cors());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
