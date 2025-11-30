@@ -5,15 +5,17 @@ const postSchema = new mongoose.Schema({
         type: String,
         trim: true,
     },
+    image: {
+        type: String,
+        trim: true,
+    },
     language: {
         type: String,
-        required: true,
         trim: true,
         lowercase: true,
     },
     code: {
         type: String,
-        required: true,
     },
     author: {
         type: mongoose.Schema.Types.ObjectId,
