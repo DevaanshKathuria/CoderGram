@@ -1,66 +1,58 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_URL = 'http://localhost:8000/api';
+import client from '../api/client';
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [userToken, setUserToken] = useState(null);
+  const [token, setTokenState] = useState(null);
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetchUserData = async (token) => {
-    try {
-      const response = await fetch(`${API_URL}/users/me`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      }
-    } catch (error) {
-      console.log('Error fetching user data:', error);
-    }
-  };
-
-  const login = async (token) => {
-    setIsLoading(true);
-    setUserToken(token);
-    await AsyncStorage.setItem('userToken', token);
-    await fetchUserData(token);
-    setIsLoading(false);
-  };
-
-  const logout = async () => {
-    setIsLoading(true);
-    setUserToken(null);
-    setUser(null);
-    await AsyncStorage.removeItem('userToken');
-    setIsLoading(false);
-  };
-
-  const isLoggedIn = async () => {
-    try {
-      setIsLoading(true);
-      let token = await AsyncStorage.getItem('userToken');
-      if (token) {
-        setUserToken(token);
-        await fetchUserData(token);
-      }
-      setIsLoading(false);
-    } catch (e) {
-      console.log(`isLoggedIn error: ${e}`);
-      setIsLoading(false);
-    }
-  };
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
   useEffect(() => {
-    isLoggedIn();
+    (async () => {
+      try {
+        const t = await AsyncStorage.getItem('token');
+        if (t) {
+          setTokenState(t);
+          try {
+            const res = await client.get('/auth/me');
+            setUser(res.data.user || res.data);
+          } catch (e) {
+          }
+        }
+      } catch (err) {
+        console.log('Auth load error', err);
+      } finally {
+        setLoadingAuth(false);
+      }
+    })();
   }, []);
 
+  const signIn = async (tokenValue) => {
+    try {
+      await AsyncStorage.setItem('token', tokenValue);
+      setTokenState(tokenValue);
+      try {
+        const res = await client.get('/auth/me');
+        setUser(res.data.user || res.data);
+      } catch (e) {
+      }
+    } catch (e) {
+      console.log('signIn error', e);
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await AsyncStorage.removeItem('token');
+    } catch (e) {}
+    setTokenState(null);
+    setUser(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ login, logout, userToken, user, isLoading }}>
+    <AuthContext.Provider value={{ token, setToken: signIn, signOut, user, setUser, loadingAuth }}>
       {children}
     </AuthContext.Provider>
   );
