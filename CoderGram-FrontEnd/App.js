@@ -1,30 +1,22 @@
+import 'react-native-gesture-handler';
 import React from 'react';
-import { PaperProvider, MD3DarkTheme } from 'react-native-paper';
+import { Provider as PaperProvider } from 'react-native-paper';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import AppNavigator from './navigation/appNavigator';
 import { AuthProvider } from './context/AuthContext';
 import { SnackbarProvider } from './context/SnackbarContext';
-import AppNav from './screens/AppNavigator';
 
-const theme = {
-  ...MD3DarkTheme,
-  colors: {
-    ...MD3DarkTheme.colors,
-    primary: '#6200ee',
-    background: '#000',
-    surface: '#1e1e1e',
-    surfaceVariant: '#2d2d2d',
-  },
-};
-
-const App = () => {
+export default function App() {
   return (
-    <PaperProvider theme={theme}>
-      <AuthProvider>
-        <SnackbarProvider>
-          <AppNav />
-        </SnackbarProvider>
-      </AuthProvider>
+    <PaperProvider>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <SnackbarProvider>
+            <AppNavigator />
+          </SnackbarProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
     </PaperProvider>
   );
-};
-
-export default App;
+}
