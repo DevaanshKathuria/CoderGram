@@ -1,319 +1,174 @@
-import React, { useState, useContext, useRef } from 'react';
-import { View, StyleSheet, Animated, TouchableOpacity, Pressable } from 'react-native';
-import { Card, Avatar, IconButton, Text, Chip } from 'react-native-paper';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState } from 'react';
+import { View, StyleSheet, Image, TouchableOpacity, Text, Platform } from 'react-native';
+import { IconButton, Avatar } from 'react-native-paper';
+import client from '../api/client';
+import { formatDistanceToNow } from 'date-fns';
+import { API_BASE } from '../config';
 
-const API_URL = 'http://localhost:8000/api';
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return 'https://via.placeholder.com/400';
+  if (imagePath.startsWith('http')) return imagePath;
+  const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+  return `${API_BASE.replace('/api', '')}/${cleanPath}`;
+};
 
-const PostCard = ({ post, onCommentPress }) => {
-  const { userToken } = useContext(AuthContext);
-  const [likes, setLikes] = useState(post.likes || []);
-  const [isLiking, setIsLiking] = useState(false);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const heartAnim = useRef(new Animated.Value(0)).current;
+export default function PostCard({ post, onOpenComments, onLikeChanged }) {
+  const [liked, setLiked] = useState(Boolean(post.isLiked));
+  const [likesCount, setLikesCount] = useState(post.likes || 0);
 
-  const isLiked = likes.some(like => like === userToken);
-
-  const handleLike = async () => {
-    if (isLiking) return;
-    
-    // Optimistic UI update
-    const wasLiked = isLiked;
-    const newLikes = wasLiked 
-      ? likes.filter(like => like !== userToken)
-      : [...likes, userToken];
-    setLikes(newLikes);
-    
-    // Animate button press
-    Animated.sequence([
-      Animated.spring(scaleAnim, {
-        toValue: 0.85,
-        useNativeDriver: true,
-        friction: 3,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 3,
-      })
-    ]).start();
-
-    // Animate heart pop if liking
-    if (!wasLiked) {
-      Animated.sequence([
-        Animated.spring(heartAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          friction: 4,
-        }),
-        Animated.timing(heartAnim, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        })
-      ]).start();
-    }
-    
-    setIsLiking(true);
+  const toggleLike = async () => {
+    setLiked(prev => !prev);
+    setLikesCount(prev => prev + (liked ? -1 : 1));
     try {
-      const response = await fetch(`${API_URL}/posts/${post._id}/like`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${userToken}` },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setLikes(data.likes);
-      } else {
-        // Revert on error
-        setLikes(wasLiked ? [...likes, userToken] : likes.filter(like => like !== userToken));
-      }
-    } catch (error) {
-      console.error('Error liking post:', error);
-      // Revert on error
-      setLikes(wasLiked ? [...likes, userToken] : likes.filter(like => like !== userToken));
-    } finally {
-      setIsLiking(false);
+      await client.put(`/posts/${post._id}/like`);
+      onLikeChanged && onLikeChanged(post._id, !liked);
+    } catch (err) {
+      setLiked(prev => !prev);
+      setLikesCount(prev => prev + (liked ? 1 : -1));
+      console.log('Like error', err);
     }
   };
 
+  const author = post.author || {};
+  const avatarUrl = getImageUrl(author.profilePicture);
+  const timeAgo = post.createdAt ? formatDistanceToNow(new Date(post.createdAt), { addSuffix: true }) : '';
+
   return (
-    <Card style={styles.card} elevation={0}>
-      {/* Header */}
-      <Card.Title
-        title={post.author?.username || 'Unknown User'}
-        titleStyle={styles.username}
-        left={(props) => (
-          <View style={styles.avatarContainer}>
-            {post.author?.profilePicture ? (
-              <Avatar.Image
-                {...props}
-                size={40}
-                source={{ uri: post.author.profilePicture }}
-              />
-            ) : (
-              <Avatar.Text
-                {...props}
-                size={40}
-                label={(post.author?.username || 'U').charAt(0).toUpperCase()}
-                style={styles.avatarGradient}
-              />
-            )}
-          </View>
+    <View style={styles.card}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Avatar.Image size={32} source={{ uri: avatarUrl }} />
+          <Text style={styles.username}>{author.username || 'Unknown'}</Text>
+        </View>
+        <IconButton icon="dots-horizontal" size={20} />
+      </View>
+
+      {post.image ? (
+        <Image source={{ uri: getImageUrl(post.image) }} style={styles.image} resizeMode="cover" />
+      ) : post.code ? (
+        <View style={styles.codeContainer}>
+          <Text style={styles.codeLanguage}>{post.language || 'Code'}</Text>
+          <Text style={styles.codeText}>{post.code}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.actions}>
+        <View style={styles.actionsLeft}>
+          <TouchableOpacity onPress={toggleLike}>
+            <IconButton
+              icon={liked ? 'heart' : 'heart-outline'}
+              size={24}
+              iconColor={liked ? '#ff3040' : 'black'}
+              style={styles.actionIcon}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onOpenComments(post)}>
+            <IconButton icon="comment-outline" size={22} style={styles.actionIcon} />
+          </TouchableOpacity>
+          <IconButton icon="send-outline" size={22} style={styles.actionIcon} />
+        </View>
+        <IconButton icon="bookmark-outline" size={24} style={styles.actionIcon} />
+      </View>
+
+      <View style={styles.footer}>
+        <Text style={styles.likes}>{likesCount} likes</Text>
+        <View style={styles.captionContainer}>
+          <Text style={styles.captionUsername}>{author.username}</Text>
+          <Text style={styles.captionText}> {post.caption}</Text>
+        </View>
+        {post.commentsCount > 0 && (
+          <TouchableOpacity onPress={() => onOpenComments(post)}>
+            <Text style={styles.viewComments}>View all {post.commentsCount} comments</Text>
+          </TouchableOpacity>
         )}
-      />
-      
-      {/* Caption */}
-      {post.caption && (
-        <Card.Content style={styles.captionContainer}>
-          <Text variant="bodyMedium" style={styles.caption}>
-            <Text style={styles.captionUsername}>{post.author?.username}</Text> {post.caption}
-          </Text>
-        </Card.Content>
-      )}
-
-      {/* Code Block */}
-      <Card.Content style={styles.codeContainer}>
-        <View style={styles.codeHeader}>
-          <Chip 
-            icon="code-tags" 
-            mode="flat" 
-            style={styles.languageChip}
-            textStyle={styles.languageText}
-          >
-            {post.language || 'code'}
-          </Chip>
-        </View>
-        <View style={styles.codeBlock}>
-          <Text style={styles.codeText} selectable>{post.code}</Text>
-        </View>
-      </Card.Content>
-
-      {/* Actions with Animation */}
-      <Card.Actions style={styles.actions}>
-        <View style={styles.leftActions}>
-          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-            <Pressable onPress={handleLike} disabled={isLiking}>
-              <View style={styles.actionButton}>
-                <IconButton
-                  icon={isLiked ? 'heart' : 'heart-outline'}
-                  iconColor={isLiked ? '#ff3366' : '#fff'}
-                  size={28}
-                  style={styles.iconButton}
-                />
-              </View>
-            </Pressable>
-          </Animated.View>
-          
-          <Pressable onPress={() => onCommentPress && onCommentPress(post)}>
-            <View style={styles.actionButton}>
-              <IconButton
-                icon="comment-outline"
-                iconColor="#fff"
-                size={28}
-                style={styles.iconButton}
-              />
-            </View>
-          </Pressable>
-          
-          <IconButton
-            icon="share-variant-outline"
-            iconColor="#fff"
-            size={28}
-            style={styles.iconButton}
-          />
-        </View>
-        
-        <IconButton
-          icon="bookmark-outline"
-          iconColor="#fff"
-          size={28}
-          style={styles.iconButton}
-        />
-      </Card.Actions>
-
-      {/* Like Count */}
-      <Card.Content style={styles.likesContainer}>
-        <Text variant="bodyMedium" style={styles.likesText}>
-          {likes.length > 0 && (
-            <Text style={styles.boldText}>
-              {likes.length} {likes.length === 1 ? 'like' : 'likes'}
-            </Text>
-          )}
-        </Text>
-        {post.commentCount > 0 && (
-          <Text variant="bodySmall" style={styles.viewComments}>
-            View all {post.commentCount} comments
-          </Text>
-        )}
-      </Card.Content>
-
-      {/* Animated Heart Overlay */}
-      <Animated.View 
-        style={[
-          styles.heartOverlay,
-          {
-            opacity: heartAnim,
-            transform: [
-              { scale: heartAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.5, 1.5]
-              })}
-            ]
-          }
-        ]}
-        pointerEvents="none"
-      >
-        <IconButton
-          icon="heart"
-          iconColor="#ff3366"
-          size={80}
-        />
-      </Animated.View>
-    </Card>
+        <Text style={styles.time}>{timeAgo}</Text>
+      </View>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 16,
-    backgroundColor: '#000',
-    borderRadius: 0,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#333',
+    marginBottom: 15,
+    backgroundColor: 'white',
   },
-  avatarContainer: {
-    padding: 2,
-    borderRadius: 50,
-    background: 'linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)',
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 10,
   },
-  avatarGradient: {
-    backgroundColor: '#6200ee',
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   username: {
     fontWeight: 'bold',
+    marginLeft: 10,
     fontSize: 14,
   },
-  captionContainer: {
-    paddingTop: 4,
-    paddingBottom: 8,
+  image: {
+    width: '100%',
+    height: 400,
   },
-  caption: {
-    color: '#fff',
-    lineHeight: 18,
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+  },
+  actionsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionIcon: {
+    margin: 0,
+  },
+  footer: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+  },
+  likes: {
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  captionContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 5,
   },
   captionUsername: {
     fontWeight: 'bold',
-    color: '#fff',
   },
-  codeContainer: {
-    paddingTop: 0,
-    paddingBottom: 0,
-  },
-  codeHeader: {
-    marginBottom: 8,
-  },
-  languageChip: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#6200ee',
-    height: 28,
-  },
-  languageText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  codeBlock: {
-    backgroundColor: '#0d1117',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#30363d',
-  },
-  codeText: {
-    fontFamily: 'Courier',
-    color: '#c9d1d9',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  actions: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-    justifyContent: 'space-between',
-  },
-  leftActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  actionButton: {
-    marginRight: -8,
-  },
-  iconButton: {
-    margin: 0,
-  },
-  likesContainer: {
-    paddingTop: 0,
-    paddingBottom: 12,
-  },
-  likesText: {
-    color: '#fff',
-  },
-  boldText: {
-    fontWeight: 'bold',
-    color: '#fff',
+  captionText: {
+    lineHeight: 18,
   },
   viewComments: {
-    color: '#888',
-    marginTop: 4,
+    color: 'gray',
+    marginBottom: 5,
   },
-  heartOverlay: {
-    position: 'absolute',
-    top: '40%',
-    left: '50%',
-    marginLeft: -40,
-    marginTop: -40,
+  time: {
+    color: 'gray',
+    fontSize: 10,
+    textTransform: 'uppercase',
+  },
+  codeContainer: {
+    width: '100%',
+    minHeight: 200,
+    backgroundColor: '#1e1e1e',
+    padding: 15,
+    justifyContent: 'center',
+  },
+  codeText: {
+    color: '#e0e0e0',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 14,
+  },
+  codeLanguage: {
+    color: '#888',
+    fontSize: 12,
+    marginBottom: 5,
+    textTransform: 'uppercase',
+    fontWeight: 'bold',
   },
 });
-
-export default React.memo(PostCard);
