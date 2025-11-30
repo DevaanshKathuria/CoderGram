@@ -3,11 +3,23 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const User = require('../models/User');
 const Post = require('../models/Post');
+const multer = require('multer');
+const path = require('path');
 
-// Search users
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '..', 'uploads'));
+  },
+  filename: function (req, file, cb) {
+    const unique = Date.now() + '-' + Math.round(Math.random()*1E9);
+    cb(null, unique + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
+
 router.get('/search', protect, async (req, res) => {
     try {
-        const { query } = req.query;
+        const query = req.query.q || req.query.query || req.query.qs || req.query.search || req.query.q;
         
         if (!query) {
             return res.status(400).json({ message: 'Search query is required.' });
@@ -113,6 +125,27 @@ router.put('/unfollow/:id', protect, async (req, res) => {
       console.error(err.message);
       res.status(500).send('Server Error');
     }
+
   });
+
+router.put('/update', protect, upload.single('profilePicture'), async (req, res) => {
+    try {
+        const { bio } = req.body;
+        const user = await User.findById(req.user.id);
+        
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        if (bio) user.bio = bio;
+        if (req.file) {
+            user.profilePicture = `/uploads/${req.file.filename}`;
+        }
+
+        await user.save();
+        res.json(user);
+    } catch (error) {
+        console.error('Update user error', error);
+        res.status(500).json({ message: 'Server error while updating profile.' });
+    }
+});
 
 module.exports = router;

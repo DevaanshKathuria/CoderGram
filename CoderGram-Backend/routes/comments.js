@@ -4,7 +4,7 @@ const Comment = require('../models/Comment');
 const Post = require('../models/Post');
 const { protect } = require('../middleware/authMiddleware');
 
-// Get comments for a post
+
 router.get('/post/:postId', protect, async (req, res) => {
     try {
         const comments = await Comment.find({ post: req.params.postId })
@@ -17,7 +17,7 @@ router.get('/post/:postId', protect, async (req, res) => {
     }
 });
 
-// Create a comment
+
 router.post('/', protect, async (req, res) => {
     const { text, postId } = req.body;
 
@@ -40,7 +40,6 @@ router.post('/', protect, async (req, res) => {
 
         const savedComment = await newComment.save();
         
-        // Increment comment count on post
         post.commentCount += 1;
         await post.save();
 
@@ -53,7 +52,6 @@ router.post('/', protect, async (req, res) => {
     }
 });
 
-// Delete a comment
 router.delete('/:id', protect, async (req, res) => {
     try {
         const comment = await Comment.findById(req.params.id);
@@ -62,7 +60,6 @@ router.delete('/:id', protect, async (req, res) => {
             return res.status(404).json({ message: 'Comment not found.' });
         }
 
-        // Check if user is the author of the comment
         if (comment.author.toString() !== req.user.id) {
             return res.status(403).json({ message: 'Not authorized to delete this comment.' });
         }
